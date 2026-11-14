@@ -201,7 +201,7 @@ scripts/build-ios.sh   # XcodeGen (installed into ~/tools if missing), ParlaCore
 ```
 
 For development: `xcodegen generate` in `ios/`, then open `Parla.xcodeproj`. Jenkins builds the iOS app in the
-`iOS` stage on the macOS node `spark` (another label via `PARLA_IOS_AGENT`). The builds are not signed yet: install
+`iOS` stage on the macOS node `Spark` (another label via `PARLA_IOS_AGENT`). The builds are not signed yet: install
 the simulator build with `xcrun simctl install booted Parla.app`, or sign the `.ipa` while sideloading (e.g. with
 Sideloadly or AltStore). Like on Android, `http://` server addresses are only accepted for the local network.
 

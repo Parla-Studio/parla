@@ -11,7 +11,7 @@
 // `apt install nsis unzip`. Optionally a .msi can be built as well: set the environment variable
 // PARLA_WINDOWS_AGENT (e.g. in the job or globally) to the label of a Windows agent with a JDK 17-21.
 //
-// The iOS app is built on the macOS node with Xcode, "spark" by default (another label via PARLA_IOS_AGENT).
+// The iOS app is built on the macOS node with Xcode, "Spark" by default (another label via PARLA_IOS_AGENT).
 // It needs Xcode with the iOS platform installed; XcodeGen is downloaded by ios/scripts/build-ios.sh.
 pipeline {
     agent any
@@ -124,7 +124,7 @@ EOF
         }
 
         stage('iOS') {
-            agent { label "${env.PARLA_IOS_AGENT ?: 'spark'}" }
+            agent { label "${env.PARLA_IOS_AGENT ?: 'Spark'}" }
             steps {
                 dir('ios') {
                     // XcodeGen project, ParlaCore unit tests, unsigned device build (.ipa) and simulator build.

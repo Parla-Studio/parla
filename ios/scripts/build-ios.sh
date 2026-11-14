@@ -1,5 +1,5 @@
 #!/bin/sh
-# Builds the Parla iOS app on a Mac with Xcode (the Jenkins node "spark"):
+# Builds the Parla iOS app on a Mac with Xcode (the Jenkins node "Spark"):
 #
 #   1. generates Parla.xcodeproj from project.yml with XcodeGen (installed into ~/tools if missing),
 #   2. runs the unit tests of ParlaCore (lesson engine, grading, progress rules, JSON),
