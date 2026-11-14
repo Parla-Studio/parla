@@ -14,19 +14,22 @@
   <img src="https://img.shields.io/badge/Android-58A700?style=flat-square&logo=android&logoColor=white" alt="Android">
   <img src="https://img.shields.io/badge/Linux-58A700?style=flat-square&logo=linux&logoColor=white" alt="Linux">
   <img src="https://img.shields.io/badge/Windows-58A700?style=flat-square&logo=windows&logoColor=white" alt="Windows">
+  <img src="https://img.shields.io/badge/iOS-58A700?style=flat-square&logo=apple&logoColor=white" alt="iOS">
   <img src="https://img.shields.io/badge/Kotlin-Compose-8B5A2B?style=flat-square&logo=kotlin&logoColor=white" alt="Kotlin + Compose">
+  <img src="https://img.shields.io/badge/Swift-SwiftUI-8B5A2B?style=flat-square&logo=swift&logoColor=white" alt="Swift + SwiftUI">
 </p>
 
 <p align="center">
   <a href="#android-app">Android app</a> ·
   <a href="#desktop-app-linux-windows">Desktop app</a> ·
+  <a href="#ios-app">iOS app</a> ·
   <a href="#how-it-fits-together">How it works</a> ·
   <a href="https://github.com/Parla-Studio/parla-server">Server</a>
 </p>
 
 ---
 
-Parla runs on Android, Linux and Windows: units grouped by level, short lessons with three hearts, and strength
+Parla runs on Android, iPhone/iPad, Linux and Windows: units grouped by level, short lessons with three hearts, and strength
 bars that fade and ask for review.
 
 The first courses are **English** and **French** for German speakers, each with 21 units from A1 to B1
@@ -47,8 +50,9 @@ parla/
 ├── shared/            Lesson engine + data layer (plain Kotlin), used by both apps
 ├── android/           Android app (Kotlin + Jetpack Compose)
 ├── desktop/           Desktop app for Linux and Windows (Kotlin + Compose Multiplatform)
+├── ios/               iOS app (Swift + SwiftUI); ParlaCore is the Swift version of shared/
 ├── docs/screenshots/  Images for this README
-└── Jenkinsfile        Builds the APK, the .deb and the Windows setup.exe
+└── Jenkinsfile        Builds the APK, the .deb, the Windows setup.exe and the iOS app
 ```
 
 The backend (accounts, course files, progress sync) lives in
@@ -166,6 +170,43 @@ to the label of a Windows agent. All installers bundle their own Java runtime, s
 
 The version number lives in `desktop/build.gradle.kts` (keep it in step with Android), the default server in
 `desktop/gradle.properties`.
+
+## iOS app
+
+A native iPhone/iPad app in Swift and SwiftUI (iOS 17+), with the same screens and rules as the Android app: the
+unit list grouped by level, lessons with all six exercise types, hearts, the hint for "Weiß ich nicht", adaptive
+difficulty, the daily goal and offline progress that is synced as events. It uses the system's voices for speech
+(*Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen* for more or better voices) and the same
+feedback sounds as the other apps. The login token is kept in the Keychain.
+
+```
+ios/
+├── project.yml        XcodeGen spec (the .xcodeproj is generated, not committed)
+├── ParlaCore/         Swift package: model, lesson builder, grading, progress rules, JSON codec, API client,
+│                      offline store, repository, feedback sounds – a port of shared/, with unit tests
+├── Parla/             The app: SwiftUI views, AppModel (= AppViewModel), Audio, assets
+└── scripts/build-ios.sh
+```
+
+`ParlaCore` has no UI and mirrors `shared/` one to one; its tests (`swift test --package-path ios/ParlaCore`) run
+the same checks as `EngineTest` against copies of the course files, so both implementations grade and build lessons
+the same way. When the rules in `shared/` change, change `ParlaCore` too.
+
+Build on a Mac with Xcode:
+
+```bash
+cd ios
+scripts/build-ios.sh   # XcodeGen (installed into ~/tools if missing), ParlaCore tests,
+                       # build/dist/Parla-<version>-ios-unsigned.ipa and Parla-<version>-ios-simulator.zip
+```
+
+For development: `xcodegen generate` in `ios/`, then open `Parla.xcodeproj`. Jenkins builds the iOS app in the
+`iOS` stage on the macOS node `spark` (another label via `PARLA_IOS_AGENT`). The builds are not signed yet: install
+the simulator build with `xcrun simctl install booted Parla.app`, or sign the `.ipa` while sideloading (e.g. with
+Sideloadly or AltStore). Like on Android, `http://` server addresses are only accepted for the local network.
+
+The version number lives in `ios/project.yml` (keep it in step with Android); the build number is the Jenkins build
+number.
 
 ## Tests
 

@@ -1,4 +1,5 @@
-// Builds the Parla client apps: Android (APK) and desktop (Linux .deb, Windows setup.exe).
+// Builds the Parla client apps: Android (APK), desktop (Linux .deb, Windows setup.exe) and iOS (unsigned .ipa
+// and a simulator build).
 // The server lives in Parla-Studio/parla-server.
 //
 // The Linux package is published to the MirraNET APT repository (apt.mirranet.de) by the Publish stage: when
@@ -9,6 +10,9 @@
 // The Windows installer (setup.exe) is built right here on Linux with NSIS: the build machine needs
 // `apt install nsis unzip`. Optionally a .msi can be built as well: set the environment variable
 // PARLA_WINDOWS_AGENT (e.g. in the job or globally) to the label of a Windows agent with a JDK 17-21.
+//
+// The iOS app is built on the macOS node with Xcode, "spark" by default (another label via PARLA_IOS_AGENT).
+// It needs Xcode with the iOS platform installed; XcodeGen is downloaded by ios/scripts/build-ios.sh.
 pipeline {
     agent any
     options { buildDiscarder(logRotator(numToKeepStr: '20')) }
@@ -116,6 +120,19 @@ EOF
             }
             post {
                 success { archiveArtifacts artifacts: 'desktop/build/dist/*.msi', fingerprint: true }
+            }
+        }
+
+        stage('iOS') {
+            agent { label "${env.PARLA_IOS_AGENT ?: 'spark'}" }
+            steps {
+                dir('ios') {
+                    // XcodeGen project, ParlaCore unit tests, unsigned device build (.ipa) and simulator build.
+                    sh 'chmod +x scripts/build-ios.sh && scripts/build-ios.sh'
+                }
+            }
+            post {
+                success { archiveArtifacts artifacts: 'ios/build/dist/*', fingerprint: true }
             }
         }
     }
