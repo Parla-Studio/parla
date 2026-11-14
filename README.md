@@ -106,15 +106,40 @@ offline store with the Android app (`shared/`) and uses the same screens, adapte
 * a sidebar instead of the bottom tab bar, content centred at a readable width, unit details in a dialog;
 * keyboard: **Enter** checks and continues, **1–9** picks an answer, **Esc** leaves a lesson or closes a dialog,
   **Ctrl+1/2/3** switches between Lernen, Fortschritt and Einstellungen;
-* speech output through the system: Windows speech (System.Speech, install voices under *Zeit und Sprache →
-  Sprache*), on Linux `spd-say` (speech-dispatcher) or `espeak-ng`;
+* speech output through the system: Windows voices (install them under *Zeit und Sprache → Sprache und Region*,
+  with *Sprachausgabe*), on Linux `spd-say` (speech-dispatcher) or `espeak-ng`;
 * progress syncs at start, every five minutes and whenever the window gets focus, so it picks up where the phone
   left off. The same account works on all devices.
 
 Data lives in `%APPDATA%\Parla` on Windows and `~/.local/share/parla` on Linux (the login token is stored
 there with owner-only permissions).
 
-Build (needs a JDK 17–21; `setup-jdk.sh` downloads Temurin 21 if the system Java does not fit):
+### Install on Debian / Ubuntu
+
+Install from the MirraNET APT repository at `apt.mirranet.de` (Debian 12+, Ubuntu 22.04+). First import its signing
+key, then add the repository and install; every new build arrives with `sudo apt upgrade`:
+
+```bash
+# Signing key of the repository
+sudo install -d /etc/apt/keyrings
+sudo curl -fsSL https://apt.mirranet.de/mirranet.gpg -o /etc/apt/keyrings/mirranet.gpg
+
+# Repository and package
+echo "deb [signed-by=/etc/apt/keyrings/mirranet.gpg] https://apt.mirranet.de stable main" \
+    | sudo tee /etc/apt/sources.list.d/mirranet.list
+sudo apt update && sudo apt install parla
+```
+
+For speech output also install `speech-dispatcher` or `espeak-ng`. Without the repository, install a package file
+from Jenkins with `sudo apt install ./Parla-<version>-linux.deb`.
+
+Jenkins publishes every build of `main` to the repository (Publish stage). Each build gets its own package version,
+`<app version>+<UTC date and time>.git<commit>` (e.g. `1.3.0+202611142030.gitabc1234`), set in the finished .deb by
+`desktop/packaging/apt/set-deb-version.sh`; the version shown in the app stays the app version.
+
+### Build
+
+Needs a JDK 17–21; `setup-jdk.sh` downloads Temurin 21 if the system Java does not fit:
 
 ```bash
 cd desktop
