@@ -251,9 +251,10 @@ final class AppModel: ObservableObject {
             grade = Grading.Grade(correct: false)
         } else {
             switch ex {
-            case let .bank(e): grade = Grading.grade(answer ?? "", accepted: e.accepted)
-            case let .type(e): grade = Grading.grade(answer ?? "", accepted: e.accepted)
-            case let .listen(e): grade = Grading.grade(answer ?? "", accepted: e.sentence.target)
+            // The course's words in the answer language tell real words from typos (ist/isst is a mistake).
+            case let .bank(e): grade = Grading.grade(answer ?? "", accepted: e.accepted, known: s.index.known(german: e.toGerman))
+            case let .type(e): grade = Grading.grade(answer ?? "", accepted: e.accepted, known: s.index.known(german: e.toGerman))
+            case let .listen(e): grade = Grading.grade(answer ?? "", accepted: e.sentence.target, known: s.index.known(german: false))
             case .choice, .word: grade = Grading.Grade(correct: choice == ex.solution)
             case .match: grade = Grading.Grade(correct: true)
             }

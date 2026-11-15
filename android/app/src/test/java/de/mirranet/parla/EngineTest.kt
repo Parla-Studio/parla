@@ -33,6 +33,23 @@ class EngineTest {
         assertTrue(Text.grade("nous mangons du pain", listOf("Nous mangeons du pain.")).note!!.startsWith("Kleiner"))
         assertFalse(Text.grade("she eat rice", listOf("She eats rice.")).correct)
         assertEquals(null, Text.grade("  Hello ,  how are you ? ", listOf("Hello, how are you?")).note)
+        // Punctuation, hyphens and small typos never make an answer wrong ...
+        assertTrue(Text.grade("I am a man", listOf("I am a man.")).correct)
+        assertTrue(Text.grade("As tu un chien", listOf("As-tu un chien ?")).correct)
+        assertTrue(Text.grade("Can you send me the email", listOf("Can you send me the e-mail?")).correct)
+        assertTrue(Text.grade("thnak you very much", listOf("Thank you very much.")).note!!.startsWith("Kleiner"))
+        assertTrue(Text.grade("I like aples", listOf("I like apples.")).correct)
+        assertTrue(Text.grade("I am verry happy", listOf("I am very happy.")).correct)
+        assertTrue(Text.grade("Ich habe einen Hnud", listOf("Ich habe einen Hund.")).correct)
+        // ... but other words and grammar do.
+        assertFalse(Text.grade("He is tall", listOf("She is tall.")).correct)
+        assertFalse(Text.grade("I see the cat", listOf("I see the car.")).correct)
+        assertFalse(Text.grade("Ich habe einem Hund", listOf("Ich habe einen Hund.")).correct)
+        assertFalse(Text.grade("Il est petite", listOf("Il est petit.")).correct)
+        assertFalse(Text.grade("thnak yuo", listOf("Thank you.")).correct)
+        // A typed word that is itself a word of the course is a mistake, not a typo.
+        assertTrue(Text.grade("Er ist einen Apfel", listOf("Er isst einen Apfel.")).correct)
+        assertFalse(Text.grade("Er ist einen Apfel", listOf("Er isst einen Apfel."), setOf("ist", "isst")).correct)
     }
 
     @Test

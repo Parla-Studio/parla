@@ -124,6 +124,14 @@ public final class CourseIndex {
         }
     }
 
+    /// All words of the course per language (in Grading.key form), to tell real words from typos when grading.
+    public private(set) lazy var knownTarget: Set<String> = Set(
+        (targetTokens + course.skills.flatMap { sk in sk.words.flatMap { Grading.tokens($0.target) } }).map { Grading.key($0) })
+    public private(set) lazy var knownGerman: Set<String> = Set(
+        (germanTokens + course.skills.flatMap { sk in sk.words.flatMap { Grading.tokens($0.german) } }).map { Grading.key($0) })
+
+    public func known(german: Bool) -> Set<String> { german ? knownGerman : knownTarget }
+
     /// Lower-cases sentence-initial words unless they are always capitalised.
     public func display(_ word: String, german: Bool) -> String {
         let caps = german ? capGerman : capTarget

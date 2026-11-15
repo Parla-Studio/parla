@@ -200,9 +200,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val ex = s.current
         val grade = when {
             forceWrong -> Text.Grade(false)
-            ex is Exercise.Bank -> Text.grade(answer.orEmpty(), ex.accepted)
-            ex is Exercise.Type -> Text.grade(answer.orEmpty(), ex.accepted)
-            ex is Exercise.Listen -> Text.grade(answer.orEmpty(), ex.sentence.target)
+            // The course's words in the answer language tell real words from typos (ist/isst is a mistake).
+            ex is Exercise.Bank -> Text.grade(answer.orEmpty(), ex.accepted, s.index.known(ex.toGerman))
+            ex is Exercise.Type -> Text.grade(answer.orEmpty(), ex.accepted, s.index.known(ex.toGerman))
+            ex is Exercise.Listen -> Text.grade(answer.orEmpty(), ex.sentence.target, s.index.known(false))
             ex is Exercise.Choice || ex is Exercise.Word -> Text.Grade(choice == ex.solution)
             ex is Exercise.Match -> Text.Grade(true)
             else -> Text.Grade(false)

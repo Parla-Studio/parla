@@ -39,6 +39,23 @@ final class EngineTests: XCTestCase {
         XCTAssertFalse(Grading.grade("she eat rice", accepted: ["She eats rice."]).correct)
         XCTAssertNil(Grading.grade("  Hello ,  how are you ? ", accepted: ["Hello, how are you?"]).note)
         XCTAssertTrue(Grading.grade("  Hello ,  how are you ? ", accepted: ["Hello, how are you?"]).correct)
+        // Punctuation, hyphens and small typos never make an answer wrong ...
+        XCTAssertTrue(Grading.grade("I am a man", accepted: ["I am a man."]).correct)
+        XCTAssertTrue(Grading.grade("As tu un chien", accepted: ["As-tu un chien ?"]).correct)
+        XCTAssertTrue(Grading.grade("Can you send me the email", accepted: ["Can you send me the e-mail?"]).correct)
+        XCTAssertTrue(Grading.grade("thnak you very much", accepted: ["Thank you very much."]).note?.hasPrefix("Kleiner") == true)
+        XCTAssertTrue(Grading.grade("I like aples", accepted: ["I like apples."]).correct)
+        XCTAssertTrue(Grading.grade("I am verry happy", accepted: ["I am very happy."]).correct)
+        XCTAssertTrue(Grading.grade("Ich habe einen Hnud", accepted: ["Ich habe einen Hund."]).correct)
+        // ... but other words and grammar do.
+        XCTAssertFalse(Grading.grade("He is tall", accepted: ["She is tall."]).correct)
+        XCTAssertFalse(Grading.grade("I see the cat", accepted: ["I see the car."]).correct)
+        XCTAssertFalse(Grading.grade("Ich habe einem Hund", accepted: ["Ich habe einen Hund."]).correct)
+        XCTAssertFalse(Grading.grade("Il est petite", accepted: ["Il est petit."]).correct)
+        XCTAssertFalse(Grading.grade("thnak yuo", accepted: ["Thank you."]).correct)
+        // A typed word that is itself a word of the course is a mistake, not a typo.
+        XCTAssertTrue(Grading.grade("Er ist einen Apfel", accepted: ["Er isst einen Apfel."]).correct)
+        XCTAssertFalse(Grading.grade("Er ist einen Apfel", accepted: ["Er isst einen Apfel."], known: ["ist", "isst"]).correct)
     }
 
     func testEveryGeneratedExerciseIsSolvable() throws {

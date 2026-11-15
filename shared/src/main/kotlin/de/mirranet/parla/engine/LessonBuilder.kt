@@ -81,6 +81,16 @@ class CourseIndex(val course: Course) {
         }
     }
 
+    /** All words of the course per language (in Text.key form), to tell real words from typos when grading. */
+    val knownTarget: Set<String> by lazy {
+        (targetTokens + course.skills.flatMap { sk -> sk.words.flatMap { Text.tokens(it.first) } }).mapTo(HashSet()) { Text.key(it) }
+    }
+    val knownGerman: Set<String> by lazy {
+        (germanTokens + course.skills.flatMap { sk -> sk.words.flatMap { Text.tokens(it.second) } }).mapTo(HashSet()) { Text.key(it) }
+    }
+
+    fun known(german: Boolean): Set<String> = if (german) knownGerman else knownTarget
+
     /** Lower-cases sentence-initial words unless they are always capitalised. */
     fun display(word: String, german: Boolean): String {
         val caps = if (german) capGerman else capTarget
