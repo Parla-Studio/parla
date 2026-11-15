@@ -44,16 +44,65 @@ final class Audio {
 
     func setLanguage(_ tag: String) { language = tag }
 
-    /// Best installed voice for a tag such as "en-GB": same region first, then any region of the language;
-    /// enhanced/premium voices are preferred over the compact default ones.
-    private func voice(for tag: String) -> AVSpeechSynthesisVoice? {
-        let voices = AVSpeechSynthesisVoice.speechVoices()
+    // ------------------------------------------------------------------ voice choice
+
+    /// Preferred kind of voice; female by default. Device-only setting (UserDefaults).
+    enum VoiceGender: String, CaseIterable, Identifiable {
+        case female, male
+        var id: String { rawValue }
+        var label: String { self == .female ? "Weiblich" : "Männlich" }
+    }
+
+    nonisolated static let genderKey = "voice_gender"
+    /// Key of the explicitly chosen voice for a language, e.g. "voice_id_en-GB".
+    nonisolated static func voiceKey(_ tag: String) -> String { "voice_id_\(tag)" }
+
+    var gender: VoiceGender {
+        VoiceGender(rawValue: UserDefaults.standard.string(forKey: Self.genderKey) ?? "") ?? .female
+    }
+
+    /// Installed voices for a tag such as "en-GB", best first: same region before other regions of the language,
+    /// premium/enhanced before compact, Apple's regular voices before the robotic Eloquence ones. Novelty and
+    /// personal voices are left out.
+    func voices(for tag: String) -> [AVSpeechSynthesisVoice] {
         let base = tag.split(separator: "-").first.map(String.init) ?? tag
-        var candidates = voices.filter { $0.language.caseInsensitiveCompare(tag) == .orderedSame }
-        if candidates.isEmpty {
-            candidates = voices.filter { $0.language == base || $0.language.hasPrefix(base + "-") }
+        let all = AVSpeechSynthesisVoice.speechVoices().filter { v in
+            (v.language == base || v.language.hasPrefix(base + "-"))
+                && !v.voiceTraits.contains(.isNoveltyVoice) && !v.voiceTraits.contains(.isPersonalVoice)
         }
-        return candidates.max { $0.quality.rawValue < $1.quality.rawValue }
+        func rank(_ v: AVSpeechSynthesisVoice) -> (Int, Int, Int) {
+            let region = v.language.caseInsensitiveCompare(tag) == .orderedSame ? 1 : 0
+            let regular = v.identifier.contains("eloquence") ? 0 : 1
+            return (region, v.quality.rawValue, regular)
+        }
+        return all.sorted { a, b in
+            let ra = rank(a)
+            let rb = rank(b)
+            if ra != rb { return ra > rb }
+            return a.name < b.name
+        }
+    }
+
+    /// The voice used for a language: the one chosen in the settings, otherwise the best one of the preferred
+    /// gender, otherwise the best one at all.
+    func voice(for tag: String) -> AVSpeechSynthesisVoice? {
+        if let id = UserDefaults.standard.string(forKey: Self.voiceKey(tag)),
+           let chosen = AVSpeechSynthesisVoice(identifier: id) {
+            return chosen
+        }
+        let list = voices(for: tag)
+        let wanted: AVSpeechSynthesisVoiceGender = gender == .female ? .female : .male
+        return list.first { $0.gender == wanted } ?? list.first
+    }
+
+    /// Plays `text` with a specific voice (or the automatic choice when nil), for trying voices in the settings.
+    func preview(_ text: String, voice: AVSpeechSynthesisVoice?, tag: String) {
+        guard let v = voice ?? self.voice(for: tag) else { return }
+        if synthesizer.isSpeaking { synthesizer.stopSpeaking(at: .immediate) }
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = v
+        utterance.rate = 0.47
+        synthesizer.speak(utterance)
     }
 
     func speak(_ text: String, slow: Bool = false) {

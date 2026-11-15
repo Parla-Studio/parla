@@ -1,3 +1,4 @@
+import AVFoundation
 import ParlaCore
 import SwiftUI
 
@@ -150,6 +151,12 @@ struct SettingsTab: View {
     @State private var showDelete = false
     @State private var resultTitle = ""
     @State private var resultMessage: String?
+    @AppStorage(Audio.genderKey) private var voiceGender = Audio.VoiceGender.female.rawValue
+
+    /// First sentence of the course, used to try voices.
+    private var sampleSentence: String {
+        course.skills.first?.sentences.first?.target.first ?? "Hello"
+    }
 
     private var version: String {
         let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
@@ -187,6 +194,27 @@ struct SettingsTab: View {
                     if !voiceAvailable {
                         Text("Für \(course.name) ist auf diesem Gerät keine Stimme installiert. Du kannst sie unter Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen laden.")
                     }
+                }
+                Section {
+                    Picker(selection: $voiceGender) {
+                        ForEach(Audio.VoiceGender.allCases) { g in Text(g.label).tag(g.rawValue) }
+                    } label: {
+                        Label { Text("Stimme") } icon: { IconTile(emoji: "🗣️", color: Palette.blue, size: 30) }
+                    }
+                    .onChange(of: voiceGender) {
+                        // A new preference replaces a voice picked by hand, so the change is heard right away.
+                        UserDefaults.standard.removeObject(forKey: Audio.voiceKey(course.tts))
+                        model.audio.preview(sampleSentence, voice: nil, tag: course.tts)
+                    }
+                    NavigationLink {
+                        VoicePickerView(course: course, sample: sampleSentence)
+                    } label: {
+                        LabeledContent("Stimme für \(course.name)", value: model.audio.voice(for: course.tts)?.name ?? "keine")
+                    }
+                } header: {
+                    Text("Sprachausgabe")
+                } footer: {
+                    Text("Weitere und bessere Stimmen kannst du unter Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen laden.")
                 }
                 Section {
                     Toggle(isOn: Binding(get: { st.largeText }, set: { repo.setLargeText($0) })) {
@@ -323,5 +351,78 @@ struct SettingsTab: View {
                 resultMessage = error
             }
         }
+    }
+}
+
+// ---------------------------------------------------------------------- voice picker
+
+/// All installed voices for the course language; tapping one selects it and plays a sample.
+private struct VoicePickerView: View {
+    @EnvironmentObject private var model: AppModel
+    let course: Course
+    let sample: String
+    @State private var chosenId: String?
+
+    private static let german = Locale(identifier: "de_DE")
+
+    var body: some View {
+        let voices = model.audio.voices(for: course.tts)
+        List {
+            Section {
+                row(title: "Automatisch", subtitle: "Beste Stimme – \(model.audio.gender.label.lowercased())", id: nil)
+            }
+            Section {
+                ForEach(voices, id: \.identifier) { v in
+                    row(title: v.name, subtitle: description(v), id: v.identifier)
+                }
+            } footer: {
+                Text("Antippen zum Auswählen und Anhören. Weitere Stimmen: Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen.")
+            }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle("Stimme")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear { chosenId = UserDefaults.standard.string(forKey: Audio.voiceKey(course.tts)) }
+        .onDisappear { model.audio.stop() }
+    }
+
+    private func row(title: String, subtitle: String, id: String?) -> some View {
+        Button {
+            chosenId = id
+            if let id {
+                UserDefaults.standard.set(id, forKey: Audio.voiceKey(course.tts))
+            } else {
+                UserDefaults.standard.removeObject(forKey: Audio.voiceKey(course.tts))
+            }
+            model.audio.preview(sample, voice: id.flatMap { AVSpeechSynthesisVoice(identifier: $0) }, tag: course.tts)
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).foregroundStyle(Color.primary)
+                    Text(subtitle).font(.subheadline).foregroundStyle(Palette.secondary)
+                }
+                Spacer()
+                if chosenId == id {
+                    Image(systemName: "checkmark").foregroundStyle(Palette.blue).accessibilityLabel("ausgewählt")
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func description(_ v: AVSpeechSynthesisVoice) -> String {
+        var parts = [Self.german.localizedString(forIdentifier: v.language) ?? v.language]
+        switch v.gender {
+        case .female: parts.append("weiblich")
+        case .male: parts.append("männlich")
+        default: break
+        }
+        switch v.quality {
+        case .premium: parts.append("Premium")
+        case .enhanced: parts.append("Erweitert")
+        default: break
+        }
+        return parts.joined(separator: " · ")
     }
 }

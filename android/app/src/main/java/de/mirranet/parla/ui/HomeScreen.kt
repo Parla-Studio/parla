@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -452,6 +453,11 @@ private fun WeekChart(xp: Map<String, Int>, goal: Int, today: LocalDate) {
 @Composable
 private fun SettingsTab(vm: AppViewModel, st: AppState, course: Course) {
     var dialog by remember { mutableStateOf<String?>(null) }
+    // Voice settings live in Audio (device-only); these states just refresh the rows after a change.
+    var voiceGender by remember { mutableStateOf(vm.audio.gender) }
+    var voiceVersion by remember { mutableStateOf(0) }
+    val voiceLabel = remember(course.tts, voiceGender, voiceVersion) { vm.audio.currentVoiceLabel(course.tts) }
+    val sample = course.skills.firstOrNull()?.sentences?.firstOrNull()?.target?.firstOrNull() ?: "Hello"
     Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
         LargeTitle("Einstellungen")
         Section(header = "Kurs") {
@@ -468,6 +474,30 @@ private fun SettingsTab(vm: AppViewModel, st: AppState, course: Course) {
             RowDivider(inset = 66.dp)
             ListRow("Hörübungen", leading = { IconTile("🎧", Ios.Purple) },
                 trailing = { IosSwitch(st.settings.listen, { v -> vm.repo.updateSettings { it.copy(listen = v) } }) })
+        }
+        Section(
+            header = "Sprachausgabe",
+            footer = "Weitere Stimmen kannst du in den Android-Einstellungen unter „Sprachausgabe“ laden.",
+        ) {
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconTile("🗣️", Ios.Blue)
+                    Text("Stimme", style = IosType.Body, modifier = Modifier.padding(start = 14.dp))
+                }
+                Segmented(
+                    Audio.Gender.values().map { it.label },
+                    selected = voiceGender.ordinal,
+                    onSelect = { i ->
+                        val g = Audio.Gender.values()[i]
+                        vm.audio.gender = g
+                        voiceGender = g
+                        vm.audio.preview(sample, course.tts, null)
+                    },
+                    modifier = Modifier.padding(top = 10.dp),
+                )
+            }
+            RowDivider()
+            ListRow("Stimme für ${course.name}", value = voiceLabel ?: "Standard", chevron = true, onClick = { dialog = "voice" })
         }
         Section(header = "Anzeige", footer = "Macht alle Texte in der App größer.") {
             ListRow("Große Schrift", leading = { IconTile("🔍", Ios.Teal) },
@@ -513,7 +543,40 @@ private fun SettingsTab(vm: AppViewModel, st: AppState, course: Course) {
             "Abmelden", { dialog = null; vm.logout { } }, { dialog = null }, destructive = true,
         )
         "password" -> PasswordAlert(vm) { dialog = null }
+        "voice" -> VoiceAlert(vm, course, sample) { dialog = null; voiceVersion++ }
         "delete" -> DeleteAlert(vm) { dialog = null }
+    }
+}
+
+/** All installed voices for the course language; tapping one selects it and plays a sample. */
+@Composable
+private fun VoiceAlert(vm: AppViewModel, course: Course, sample: String, onDismiss: () -> Unit) {
+    val voices = remember(course.tts) { vm.audio.voices(course.tts) }
+    var chosen by remember { mutableStateOf(vm.audio.chosenVoice(course.tts)) }
+    IosAlert(
+        "Stimme für ${course.name}", "Antippen zum Auswählen und Anhören.", "Fertig",
+        onConfirm = { vm.audio.stop(); onDismiss() }, onDismiss = { vm.audio.stop(); onDismiss() }, dismissText = null,
+    ) {
+        Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+            val rows = listOf<Pair<String?, String>>(null to "Automatisch (${vm.audio.gender.label.lowercase()})") +
+                voices.map { it.name to it.label }
+            rows.forEach { (name, label) ->
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable {
+                        chosen = name
+                        vm.audio.chooseVoice(course.tts, name)
+                        vm.audio.preview(sample, course.tts, name)
+                    }.padding(vertical = 10.dp, horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SelectionCircle(chosen == name)
+                    Text(label, style = IosType.Subhead, modifier = Modifier.padding(start = 12.dp))
+                }
+            }
+            if (voices.isEmpty()) {
+                Text("Keine Stimme für diese Sprache installiert.", style = IosType.Footnote, color = Ios.SecondaryLabel)
+            }
+        }
     }
 }
 
