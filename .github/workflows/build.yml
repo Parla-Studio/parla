@@ -15,10 +15,12 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
+          # Keeps downloaded dependencies between runs (fewer downloads, fewer rate limits).
+          cache: gradle
       # The runner has the Android SDK (ANDROID_HOME); missing platforms/build tools are installed by Gradle.
       - name: Release signing key
         # Optional: without these secrets the release APK is signed with the debug key of this run, and
@@ -53,10 +55,11 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
+          cache: gradle
       - name: Build
         working-directory: desktop
         run: |
