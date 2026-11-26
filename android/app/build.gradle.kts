@@ -8,6 +8,10 @@ val serverUrl = (findProperty("parlaServer") as String?) ?: "https://parla.mirra
 val appVersionName = "1.3.0"
 val appVersionCode = 4
 
+// Release signing key, given by the build environment (GitHub Actions secrets, see README): path of the keystore
+// file plus its passwords and the key alias. Without them the release APK is signed with the debug key.
+val releaseKeystore = System.getenv("ANDROID_KEYSTORE_FILE")?.takeIf { it.isNotBlank() && file(it).exists() }
+
 // APK file name: Parla-<version>-<buildType>.apk (e.g. Parla-1.3.0-release.apk)
 base {
     archivesName.set("Parla-$appVersionName")
@@ -26,13 +30,25 @@ android {
         buildConfigField("String", "DEFAULT_SERVER_URL", "\"$serverUrl\"")
     }
 
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = file(releaseKeystore!!)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Signed with the debug key unless you configure your own signingConfig (see README).
-            signingConfig = signingConfigs.getByName("debug")
+            // The release key when it is configured (see above), otherwise the debug key. Updates of an installed
+            // app only work when every build is signed with the same key.
+            signingConfig = signingConfigs.getByName(if (releaseKeystore != null) "release" else "debug")
         }
     }
     compileOptions {

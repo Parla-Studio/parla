@@ -102,8 +102,10 @@ The default server address comes from `parlaServer` in `android/gradle.propertie
 (`https://parla.mirranet.de`) and can be changed on the login screen. Debug builds also allow plain HTTP,
 e.g. `http://10.0.2.2:8085` for a server on the emulator's host.
 
-The release build is signed with the debug key so it installs out of the box. For a real release, add your own
-`signingConfig` in `android/app/build.gradle.kts`.
+The release build is signed with the release key when the environment provides one (`ANDROID_KEYSTORE_FILE`,
+`ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`; GitHub Actions sets them from secrets, see
+[Releases](#releases)), otherwise with the debug key so it installs out of the box. An installed app can only be
+updated by an APK signed with the same key, so all builds people install must use the same release key.
 
 ## Desktop app (Linux, Windows)
 
@@ -216,13 +218,30 @@ version if not released yet, otherwise the next patch version). `scripts/release
 (desktop, Android – with the next `versionCode` – and iOS), commits and tags `vX.Y.Z`; then the *Build* workflow runs
 for the tag and
 
+- tests and builds the Android app (`Parla-<version>-release.apk`),
 - builds the Linux package of the desktop app on Ubuntu 22.04 (Debian 12+, Ubuntu 22.04+),
-- publishes a GitHub release with the `.deb`,
+- publishes a GitHub release with the APK and the `.deb`,
 - uploads the `.deb` to the MirraNET APT repository (`apt` job: `packaging/apt/publish.sh` runs `reprepro` on the
   repository server over SSH).
 
-The `apt` job needs the secrets `APT_HOST`, `APT_PORT`, `APT_REPO`, `APT_SSH_KEY` and `APT_KNOWN_HOSTS` (organization
-secrets of Parla-Studio); without them it is skipped. Android, Windows and iOS are built by Jenkins.
+The *Build* workflow also runs on every push to `main` (APK and `.deb` as workflow artifacts, nothing published).
+
+Secrets (organization secrets of Parla-Studio):
+
+| Secret | Used for |
+| --- | --- |
+| `APT_HOST`, `APT_PORT`, `APT_REPO`, `APT_SSH_KEY`, `APT_KNOWN_HOSTS` | `apt` job; skipped without them |
+| `ANDROID_KEYSTORE` | release keystore as Base64 (`base64 -w0 parla-release.jks`) |
+| `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` | its passwords and key alias |
+
+Without the Android secrets the APK is signed with a debug key made for that run, which cannot update an installed
+app – set them before publishing APKs. Create the keystore once and keep it safe; without it there can be no updates:
+
+```bash
+keytool -genkeypair -v -keystore parla-release.jks -alias parla -keyalg RSA -keysize 4096 -validity 36500
+```
+
+Windows and iOS are built by Jenkins.
 
 ## Tests
 
