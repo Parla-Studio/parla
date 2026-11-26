@@ -7,7 +7,7 @@ plugins {
 }
 
 // Keep in step with android/app/build.gradle.kts.
-val appVersion = "1.3.1"
+val appVersion = "1.3.2"
 val parlaServer = providers.gradleProperty("parlaServer").getOrElse("https://parla.mirranet.de")
 
 group = "de.mirranet.parla"

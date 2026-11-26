@@ -5,8 +5,8 @@ plugins {
 }
 
 val serverUrl = (findProperty("parlaServer") as String?) ?: "https://parla.mirranet.de"
-val appVersionName = "1.3.1"
-val appVersionCode = 5
+val appVersionName = "1.3.2"
+val appVersionCode = 6
 
 // Release signing key, given by the build environment (GitHub Actions secrets, see README): path of the keystore
 // file plus its passwords and the key alias. Without them the release APK is signed with the debug key.
