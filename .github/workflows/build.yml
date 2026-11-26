@@ -1,8 +1,8 @@
 name: Build
 
-# Builds the Android app (APK) and the Linux package of the desktop app; Windows and iOS are built by Jenkins.
-# For a version tag (made by the Release workflow) both are published as a GitHub release, and the .deb also in the
-# APT repository.
+# Builds all Parla apps: Android (APK), desktop for Linux (.deb) and Windows (.msi), and iOS (unsigned .ipa and a
+# simulator build). For a version tag (made by the Release workflow) they are published as a GitHub release, and the
+# .deb also in the APT repository.
 on:
   push:
     branches: [main]
@@ -74,9 +74,47 @@ jobs:
           name: parla-linux-x86_64
           path: dist/*
 
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - name: Build
+        working-directory: desktop
+        # jpackage builds the .msi; the WiX Toolset it needs is downloaded by the build.
+        run: |
+          ./gradlew.bat --no-daemon distMsi
+          New-Item -ItemType Directory -Force ../dist | Out-Null
+          Copy-Item build/dist/*.msi ../dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: parla-windows
+          path: dist/*
+
+  ios:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build
+        working-directory: ios
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+        # XcodeGen project, ParlaCore unit tests, unsigned device build (.ipa) and simulator build.
+        run: |
+          chmod +x scripts/build-ios.sh
+          scripts/build-ios.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: parla-ios
+          path: ios/build/dist/*
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [android, package]
+    needs: [android, package, windows, ios]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -98,7 +136,10 @@ jobs:
           | System | File |
           | --- | --- |
           | Android 8+ | \`Parla-${version}-release.apk\` |
+          | Windows 10/11 (x64) | \`Parla-${version}-windows.msi\` |
           | Debian 12+, Ubuntu 22.04+ (x86_64) | \`Parla-${version}-linux.deb\` |
+          | iOS 17+ (unsigned, for sideloading) | \`Parla-${version}-ios-unsigned.ipa\` |
+          | iOS Simulator | \`Parla-${version}-ios-simulator.zip\` |
 
           Linux: install and update via apt.mirranet.de (package \`parla\`), see the README.
           NOTES
