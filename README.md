@@ -52,6 +52,9 @@ parla/
 ├── desktop/           Desktop app for Linux and Windows (Kotlin + Compose Multiplatform)
 ├── ios/               iOS app (Swift + SwiftUI); ParlaCore is the Swift version of shared/
 ├── docs/screenshots/  Images for this README
+├── packaging/apt/     publish.sh – adds the .deb to the APT repository (reprepro, run on the server)
+├── scripts/release.sh Sets the version of all apps, commits and tags (used by the Release workflow)
+├── .github/workflows/ Build (Linux package, GitHub release, APT) and Release
 └── Jenkinsfile        Builds the APK, the .deb, the Windows setup.exe and the iOS app
 ```
 
@@ -137,9 +140,7 @@ sudo apt update && sudo apt install parla
 For speech output also install `speech-dispatcher` or `espeak-ng`. Without the repository, install a package file
 from Jenkins with `sudo apt install ./Parla-<version>-linux.deb`.
 
-Jenkins publishes every build of `main` to the repository (Publish stage). Each build gets its own package version,
-`<app version>+<UTC date and time>.git<commit>` (e.g. `1.3.0+202611142030.gitabc1234`), set in the finished .deb by
-`desktop/packaging/apt/set-deb-version.sh`; the version shown in the app stays the app version.
+New versions reach the repository with a release (see [Releases](#releases)).
 
 ### Build
 
@@ -207,6 +208,21 @@ Sideloadly or AltStore). Like on Android, `http://` server addresses are only ac
 
 The version number lives in `ios/project.yml` (keep it in step with Android); the build number is the Jenkins build
 number.
+
+## Releases
+
+Releases are made in GitHub: **Actions › Release › Run workflow**, enter the version (`X.Y.Z`; empty = the current
+version if not released yet, otherwise the next patch version). `scripts/release.sh` sets the version of all apps
+(desktop, Android – with the next `versionCode` – and iOS), commits and tags `vX.Y.Z`; then the *Build* workflow runs
+for the tag and
+
+- builds the Linux package of the desktop app on Ubuntu 22.04 (Debian 12+, Ubuntu 22.04+),
+- publishes a GitHub release with the `.deb`,
+- uploads the `.deb` to the MirraNET APT repository (`apt` job: `packaging/apt/publish.sh` runs `reprepro` on the
+  repository server over SSH).
+
+The `apt` job needs the secrets `APT_HOST`, `APT_PORT`, `APT_REPO`, `APT_SSH_KEY` and `APT_KNOWN_HOSTS` (organization
+secrets of Parla-Studio); without them it is skipped. Android, Windows and iOS are built by Jenkins.
 
 ## Tests
 
