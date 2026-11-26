@@ -54,8 +54,7 @@ parla/
 ├── docs/screenshots/  Images for this README
 ├── packaging/apt/     publish.sh – adds the .deb to the APT repository (reprepro, run on the server)
 ├── scripts/release.sh Sets the version of all apps, commits and tags (used by the Release workflow)
-├── .github/workflows/ Build (Linux package, GitHub release, APT) and Release
-└── Jenkinsfile        Builds the APK, the .deb, the Windows setup.exe and the iOS app
+└── .github/workflows/ Build (APK, .deb, .msi, iOS app, GitHub release, APT) and Release
 ```
 
 The backend (accounts, course files, progress sync) lives in
@@ -95,7 +94,7 @@ scripts/setup-android-sdk.sh > .build-env && . ./.build-env   # JDK + Android SD
 
 `setup-android-sdk.sh` reuses an existing SDK if `ANDROID_HOME` is set, accepts the SDK licences and installs
 platform 35 and build tools 35.0.0. Gradle 8 cannot run on Java 25+, so if the machine's Java is outside 17–24
-the script downloads a Temurin JDK 21 into `~/jdks/temurin-21` and uses it for the Android build only. Jenkins runs it automatically. The APK ends up in
+the script downloads a Temurin JDK 21 into `~/jdks/temurin-21` and uses it for the Android build only. The APK ends up in
 `android/app/build/outputs/apk/release/Parla-<version>-release.apk`.
 
 The default server address comes from `parlaServer` in `android/gradle.properties`
@@ -139,8 +138,8 @@ echo "deb [signed-by=/etc/apt/keyrings/mirranet.gpg] https://apt.mirranet.de sta
 sudo apt update && sudo apt install parla
 ```
 
-For speech output also install `speech-dispatcher` or `espeak-ng`. Without the repository, install a package file
-from Jenkins with `sudo apt install ./Parla-<version>-linux.deb`.
+For speech output also install `speech-dispatcher` or `espeak-ng`. Without the repository, install the package file
+from the GitHub release with `sudo apt install ./Parla-<version>-linux.deb`.
 
 New versions reach the repository with a release (see [Releases](#releases)).
 
@@ -155,21 +154,9 @@ scripts/setup-jdk.sh > .build-env && . ./.build-env
 ./gradlew distDeb      # Linux:   build/dist/Parla-<version>-linux.deb   (needs dpkg-deb + fakeroot)
 ```
 
-The Windows installer is built on Linux, no Windows machine needed (needs `apt install nsis unzip`):
-
-```bash
-./gradlew distWindows  # Windows: build/dist/Parla-<version>-windows-setup.exe
-```
-
-It bundles the app with its Windows libraries, a Windows Java runtime (Temurin JRE 21, downloaded once into
-`~/jdks/temurin-21-jre-windows-x64`) and a small `Parla.exe` launcher, built with NSIS
-(`desktop/packaging/windows/`). The setup installs per user into `%LOCALAPPDATA%\Programs\Parla` without admin
-rights, adds Start menu and desktop shortcuts and an entry in *Apps*; running a newer setup updates in place.
-Uninstalling keeps the learning data in `%APPDATA%\Parla`.
-
-Alternatively, on Windows: `gradlew.bat distMsi` → `build\dist\Parla-<version>-windows.msi` (WiX is downloaded by
-the build). jpackage cannot cross-build, so in Jenkins the .msi stage only runs when `PARLA_WINDOWS_AGENT` is set
-to the label of a Windows agent. All installers bundle their own Java runtime, so users need nothing else.
+The Windows installer is built on Windows: `gradlew.bat distMsi` → `build\dist\Parla-<version>-windows.msi`
+(WiX is downloaded by the build). jpackage cannot cross-build, so GitHub Actions builds the .msi on a Windows runner
+and the .deb on a Linux runner. All installers bundle their own Java runtime, so users need nothing else.
 
 The version number lives in `desktop/build.gradle.kts` (keep it in step with Android), the default server in
 `desktop/gradle.properties`.
@@ -203,13 +190,13 @@ scripts/build-ios.sh   # XcodeGen (installed into ~/tools if missing), ParlaCore
                        # build/dist/Parla-<version>-ios-unsigned.ipa and Parla-<version>-ios-simulator.zip
 ```
 
-For development: `xcodegen generate` in `ios/`, then open `Parla.xcodeproj`. Jenkins builds the iOS app in the
-`iOS` stage on the macOS node `Spark` (another label via `PARLA_IOS_AGENT`). The builds are not signed yet: install
+For development: `xcodegen generate` in `ios/`, then open `Parla.xcodeproj`. GitHub Actions builds the iOS app
+on a macOS runner. The builds are not signed yet: install
 the simulator build with `xcrun simctl install booted Parla.app`, or sign the `.ipa` while sideloading (e.g. with
 Sideloadly or AltStore). Like on Android, `http://` server addresses are only accepted for the local network.
 
-The version number lives in `ios/project.yml` (keep it in step with Android); the build number is the Jenkins build
-number.
+The version number lives in `ios/project.yml` (keep it in step with Android); the build number is the GitHub
+Actions run number.
 
 ## Releases
 
@@ -240,8 +227,6 @@ app – set them before publishing APKs. Create the keystore once and keep it sa
 ```bash
 keytool -genkeypair -v -keystore parla-release.jks -alias parla -keyalg RSA -keysize 4096 -validity 36500
 ```
-
-Windows and iOS are built by Jenkins.
 
 ## Tests
 
