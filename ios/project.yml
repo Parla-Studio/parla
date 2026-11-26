@@ -12,7 +12,7 @@ options:
 settings:
   base:
     # Same version as the Android and desktop apps; the build number comes from Jenkins.
-    MARKETING_VERSION: "1.3.0"
+    MARKETING_VERSION: "1.3.1"
     CURRENT_PROJECT_VERSION: "1"
     SWIFT_VERSION: "5.0"
     # Builds are unsigned for now (simulator build + unsigned .ipa for sideloading).
