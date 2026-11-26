@@ -11,48 +11,83 @@ struct StatsTab: View {
     private static let goals = [10, 20, 30, 50]
     private static let goalNames = [10: "Locker", 20: "Normal", 30: "Ernsthaft", 50: "Intensiv"]
 
-    var body: some View {
-        let st = repo.state
-        let p = st.progress
-        let answered = (p.courses[course.id] ?? [:]).values.filter { $0.answers > 0 }
-        let totalAnswers = answered.reduce(0) { $0 + $1.answers }
-        let accuracy: Int? = totalAnswers == 0 ? nil
-            : Int(100 * answered.reduce(0.0) { $0 + $1.accuracy * Double($1.answers) } / Double(totalAnswers))
-        let doneUnits = course.skills.filter { ProgressLogic.isDone(p, course, $0) }.count
-        let goal = st.settings.goal
+    // The numbers are computed in small helpers: one big expression in `body` is too much for the type checker of
+    // older Xcode versions ("unable to type-check this expression in reasonable time").
+
+    private var progress: LearnerProgress { repo.state.progress }
+    private var goal: Int { repo.state.settings.goal }
+
+    private var streakText: String { String(ProgressLogic.streak(progress.xp)) }
+
+    private var totalXpText: String {
+        var sum = 0
+        for value in progress.xp.values { sum += value }
+        return String(sum)
+    }
+
+    private var unitsText: String {
+        var done = 0
+        for skill in course.skills where ProgressLogic.isDone(progress, course, skill) { done += 1 }
+        return "\(done)/\(course.skills.count)"
+    }
+
+    /// Share of correct answers over all units of the course, weighted by the number of answers.
+    private var accuracyText: String {
+        var answers = 0
+        var weighted = 0.0
+        for skill in (progress.courses[course.id] ?? [:]).values where skill.answers > 0 {
+            answers += skill.answers
+            weighted += skill.accuracy * Double(skill.answers)
+        }
+        if answers == 0 { return "–" }
+        let percent = Int(100.0 * weighted / Double(answers))
+        return "\(percent) %"
+    }
+
+    private var goalFooter: String {
         let selected = Self.goals.contains(goal) ? goal : 20
-        let selectedName = Self.goalNames[selected] ?? "Normal"
+        let name = Self.goalNames[selected] ?? "Normal"
+        let lessons = selected / 12 + 1
+        return "\(name): \(selected) XP am Tag – das sind etwa \(lessons) Lektionen."
+    }
+
+    private var goalBinding: Binding<Int> {
+        Binding(get: { goal }, set: { value in repo.updateSettings { $0.goal = value } })
+    }
+
+    var body: some View {
         NavigationStack {
             List {
                 Section {
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                        StatTile(emoji: "🔥", value: "\(ProgressLogic.streak(p.xp))", label: "Tage in Folge")
-                        StatTile(emoji: "⚡", value: "\(p.xp.values.reduce(0, +))", label: "XP gesamt")
-                        StatTile(emoji: course.flag, value: "\(doneUnits)/\(course.skills.count)", label: "Einheiten fertig")
-                        StatTile(emoji: "🎯", value: accuracy.map { "\($0) %" } ?? "–", label: "richtig beantwortet")
-                    }
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets())
+                    tiles
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets())
                 }
                 Section("Diese Woche") {
-                    WeekChart(xp: p.xp, goal: goal).padding(.vertical, 8)
+                    WeekChart(xp: progress.xp, goal: goal).padding(.vertical, 8)
                 }
                 Section {
-                    Picker("Tagesziel", selection: Binding(
-                        get: { goal },
-                        set: { v in repo.updateSettings { $0.goal = v } }
-                    )) {
-                        ForEach(Self.goals, id: \.self) { g in Text("\(g)").tag(g) }
+                    Picker("Tagesziel", selection: goalBinding) {
+                        ForEach(Self.goals, id: \.self) { g in Text(String(g)).tag(g) }
                     }
                     .pickerStyle(.segmented)
                 } header: {
                     Text("Tagesziel")
                 } footer: {
-                    Text("\(selectedName): \(selected) XP am Tag – das sind etwa \(selected / 12 + 1) Lektionen.")
+                    Text(goalFooter)
                 }
             }
             .listStyle(.insetGrouped)
             .navigationTitle("Fortschritt")
+        }
+    }
+
+    private var tiles: some View {
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+            StatTile(emoji: "🔥", value: streakText, label: "Tage in Folge")
+            StatTile(emoji: "⚡", value: totalXpText, label: "XP gesamt")
+            StatTile(emoji: course.flag, value: unitsText, label: "Einheiten fertig")
+            StatTile(emoji: "🎯", value: accuracyText, label: "richtig beantwortet")
         }
     }
 }
